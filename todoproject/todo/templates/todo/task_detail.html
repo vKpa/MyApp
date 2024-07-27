@@ -1,0 +1,13 @@
+{% extends "todo/base.html" %}
+
+{% block content %}
+  <h2>{{ task.title }}</h2>
+  <p>説明: {{ task.description }}</p>
+  <p>期日: {{ task.due_date }}</p>
+  <p>カテゴリ: {{ task.category }}</p>
+  <p>優先度: {{ task.get_priority_display }}</p>
+  <p>ステータス: {% if task.completed %}完了{% else %}未対応{% endif %}</p>
+  <a href="{% url 'task_update' task.pk %}">編集</a>
+  <a href="{% url 'task_delete' task.pk %}">削除</a>
+  <a href="{% url 'task_list' %}">タスク一覧へ戻る</a>
+{% endblock %}

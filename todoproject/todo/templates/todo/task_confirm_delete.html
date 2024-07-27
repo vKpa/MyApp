@@ -1,0 +1,11 @@
+{% extends "todo/base.html" %}
+
+{% block content %}
+  <h2>削除</h2>
+  <p>本当にこのタスクを削除しますか "{{ task.title }}"?</p>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit">完全に削除する</button>
+  </form>
+  <a href="{% url 'task_detail' task.pk %}">キャンセル</a>
+{% endblock %}

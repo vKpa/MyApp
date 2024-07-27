@@ -1,0 +1,52 @@
+{% extends "todo/base.html" %}
+
+{% block content %}
+  <h2>タスク</h2>
+  <a href="{% url 'task_create' %}">新規作成</a>
+
+  <form method="get">
+    <input type="text" name="search" value="{{ search_query }}" placeholder="Search tasks">
+    <select name="category">
+      <option value="">すべてのカテゴリ</option>
+      {% for category in categories %}
+        <option value="{{ category.id }}" {% if category.id|stringformat:"s" == current_category %}selected{% endif %}>
+          {{ category.name }}
+        </option>
+      {% endfor %}
+    </select>
+    <select name="priority">
+      <option value="">すべての優先度</option>
+      <option value="high" {% if current_priority == 'high' %}selected{% endif %}>高</option>
+      <option value="medium" {% if current_priority == 'medium' %}selected{% endif %}>中</option>
+      <option value="低" {% if current_priority == '低' %}selected{% endif %}>低</option>
+    </select>
+    <select name="completed">
+      <option value="">すべてのステータス</option>
+      <option value="True" {% if current_completed == 'True' %}selected{% endif %}>完了</option>
+      <option value="False" {% if current_completed == 'False' %}selected{% endif %}>未対応</option>
+    </select>
+    <select name="sort">
+      <option value="created_date" {% if current_sort == 'created_date' %}selected{% endif %}>作成日（最新）</option>
+      <option value="due_date" {% if current_sort == 'due_date' %}selected{% endif %}>期日（昇順）</option>
+      <option value="-due_date" {% if current_sort == '-due_date' %}selected{% endif %}>期日（降順）</option>
+      <option value="priority" {% if current_sort == 'priority' %}selected{% endif %}>優先度</option>
+    </select>
+    <button type="submit">フィルター適用</button>
+  </form>
+
+  <ul>
+    {% for task in tasks %}
+      <li style="{% if task.completed %}text-decoration: line-through;{% endif %}">
+        <a href="{% url 'task_detail' task.pk %}">{{ task.title }}</a>
+        ({{ task.get_priority_display }})
+        {% if task.category %}[{{ task.category.name }}]{% endif %}
+        期日: {{ task.due_date|date:"Y-m-d H:i" }}
+        <a href="{% url 'task_toggle_complete' task.pk %}">
+          {% if task.completed %}未対応にする{% else %}完了にする{% endif %}
+        </a>
+      </li>
+    {% empty %}
+      <li>タスクがありません</li>
+    {% endfor %}
+  </ul>
+{% endblock %}
