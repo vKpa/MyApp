@@ -1,10 +1,21 @@
 {% extends "todo/base.html" %}
+{% load widget_tweaks %}
 
 {% block content %}
+<div class="form-container">
   <h2>ログイン</h2>
   <form method="post">
     {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">ログイン</button>
+    {% for field in form %}
+      <div class="form-group">
+        {{ field.label_tag }}
+        {% render_field field class="form-control" %}
+        {% for error in field.errors %}
+          <div class="invalid-feedback d-block">{{ error }}</div>
+        {% endfor %}
+      </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary">ログイン</button>
   </form>
+</div>
 {% endblock %}
