@@ -1,28 +1,20 @@
-from django.shortcuts import render, redirect
-from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth import login
+# Django core imports
 from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
-from .models import Task
-from .forms import TaskForm
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import JsonResponse
-from django.contrib import messages
+from django.utils.http import urlencode
 from django.views.decorators.http import require_POST
-from .models import Category
 
-@login_required
-def task_list(request):
-    tasks = Task.objects.filter(user=request.user)
-    categories = Category.objects.all()
+# Local imports
+from .models import Task, Category
+from .forms import TaskForm
 
-    # フィルタリング
-    category_id = request.GET.get('category')
-    priority = request.GET.get('priority')
-    completed = request.GET.get('completed')
-    search_query = request.GET.get('search', '')
-
+def filter_tasks(tasks, category_id, priority, completed, search_query):
     if category_id:
         tasks = tasks.filter(category_id=category_id)
     if priority:
@@ -31,22 +23,44 @@ def task_list(request):
         tasks = tasks.filter(completed=completed == 'True')
     if search_query:
         tasks = tasks.filter(Q(title__icontains=search_query) | Q(description__icontains=search_query))
+    return tasks
 
-    # ソート
-    sort = request.GET.get('sort', 'created_date')  # デフォルトは作成日順
-    if sort == 'due_date':
-        tasks = tasks.order_by('due_date')
-    elif sort == '-due_date':
-        tasks = tasks.order_by('-due_date')
-    elif sort == 'priority':
-        tasks = tasks.order_by('-priority')  # 優先度高い順
-    else:
-        tasks = tasks.order_by('-created_date')
+def sort_tasks(tasks, sort_param):
+    sort_mapping = {
+        'due_date': 'due_date',
+        '-due_date': '-due_date',
+        'priority': '-priority',
+        '-priority': 'priority',
+        'created_date': 'created_date',
+        '-created_date': '-created_date'
+    }
+    return tasks.order_by(sort_mapping.get(sort_param, '-created_date'))
+
+@login_required
+def task_list(request):
+    tasks = Task.objects.filter(user=request.user)
+    categories = Category.objects.all()
+
+    # フィルタリングとソートのパラメータを取得
+    category_id = request.GET.get('category')
+    priority = request.GET.get('priority')
+    completed = request.GET.get('completed')
+    search_query = request.GET.get('search', '')
+    sort = request.GET.get('sort', '-created_date')
+
+    # タスクのフィルタリングとソート
+    tasks = filter_tasks(tasks, category_id, priority, completed, search_query)
+    tasks = sort_tasks(tasks, sort)
 
     # ページネーション
     paginator = Paginator(tasks, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+
+    # 現在のGETパラメータを取得し、'page'と'sort'を除去
+    query_params = request.GET.copy()
+    query_params.pop('page', None)
+    query_params.pop('sort', None)
 
     context = {
         'page_obj': page_obj,
@@ -57,6 +71,7 @@ def task_list(request):
         'current_completed': completed,
         'current_sort': sort,
         'search_query': search_query,
+        'query_params': urlencode(query_params),
     }
     return render(request, 'todo/task_list.html', context)
 
@@ -65,7 +80,6 @@ def task_detail(request, pk):
     task = get_object_or_404(Task, pk=pk, user=request.user)
     return render(request, 'todo/task_detail.html', {'task': task})
 
-@login_required
 @login_required
 def task_create(request):
     if request.method == 'POST':
@@ -87,6 +101,7 @@ def task_update(request, pk):
         form = TaskForm(request.POST, instance=task)
         if form.is_valid():
             form.save()
+            messages.success(request, 'タスクが正常に更新されました。')
             return redirect('task_list')
     else:
         form = TaskForm(instance=task)
@@ -97,6 +112,7 @@ def task_delete(request, pk):
     task = get_object_or_404(Task, pk=pk, user=request.user)
     if request.method == 'POST':
         task.delete()
+        messages.success(request, 'タスクが正常に削除されました。')
         return redirect('task_list')
     return render(request, 'todo/task_confirm_delete.html', {'task': task})
 
@@ -117,7 +133,8 @@ def register(request):
         if form.is_valid():
             user = form.save()
             login(request, user)
-            return redirect('task_list')  # タスク一覧ページにリダイレクト
+            messages.success(request, '正常に登録されました。')
+            return redirect('task_list')
     else:
         form = UserCreationForm()
     return render(request, 'todo/register.html', {'form': form})

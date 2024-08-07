@@ -2,12 +2,60 @@
 
 {% block content %}
   <h2>タスク一覧</h2>
+
+  <!-- フィルタリングフォーム -->
+  <form method="get" class="mb-4">
+    <div class="row">
+      <div class="col-md-3">
+        <select name="category" class="form-control">
+          <option value="">カテゴリ選択</option>
+          {% for category in categories %}
+            <option value="{{ category.id }}" {% if current_category == category.id|stringformat:"i" %}selected{% endif %}>
+              {{ category.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <select name="priority" class="form-control">
+          <option value="">優先度選択</option>
+          <option value="high" {% if current_priority == "high" %}selected{% endif %}>高</option>
+          <option value="medium" {% if current_priority == "medium" %}selected{% endif %}>中</option>
+          <option value="low" {% if current_priority == "low" %}selected{% endif %}>低</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <select name="completed" class="form-control">
+          <option value="">状態選択</option>
+          <option value="True" {% if current_completed == "True" %}selected{% endif %}>完了</option>
+          <option value="False" {% if current_completed == "False" %}selected{% endif %}>未完了</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <input type="text" name="search" class="form-control" placeholder="検索..." value="{{ search_query }}">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary mt-2">フィルター適用</button>
+  </form>
+
   <table class="table">
     <thead>
       <tr>
-        <th>タイトル</th>
-        <th>期限</th>
-        <th>優先度</th>
+        <th>
+          <a href="?sort={% if current_sort == 'created_date' %}-{% endif %}created_date{% if query_params %}&{{ query_params }}{% endif %}">
+            タイトル {% if current_sort == 'created_date' %}↑{% elif current_sort == '-created_date' %}↓{% endif %}
+          </a>
+        </th>
+        <th>
+          <a href="?sort={% if current_sort == 'due_date' %}-{% endif %}due_date{% if query_params %}&{{ query_params }}{% endif %}">
+            期限 {% if current_sort == 'due_date' %}↑{% elif current_sort == '-due_date' %}↓{% endif %}
+          </a>
+        </th>
+        <th>
+          <a href="?sort={% if current_sort == 'priority' %}-{% endif %}priority{% if query_params %}&{{ query_params }}{% endif %}">
+            優先度 {% if current_sort == 'priority' %}↑{% elif current_sort == '-priority' %}↓{% endif %}
+          </a>
+        </th>
         <th>カテゴリ</th>
         <th>状態</th>
         <th>アクション</th>
@@ -39,5 +87,37 @@
       {% endfor %}
     </tbody>
   </table>
+
+  <!-- ページネーション -->
+  {% if page_obj.has_other_pages %}
+    <nav>
+      <ul class="pagination">
+        {% if page_obj.has_previous %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query_params %}&{{ query_params }}{% endif %}">&laquo; 前</a>
+          </li>
+        {% endif %}
+
+        {% for i in page_obj.paginator.page_range %}
+          {% if page_obj.number == i %}
+            <li class="page-item active">
+              <span class="page-link">{{ i }} <span class="sr-only">(current)</span></span>
+            </li>
+          {% else %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ i }}&{{ request.GET.urlencode }}">{{ i }}</a>
+            </li>
+          {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query_params %}&{{ query_params }}{% endif %}">次 &raquo;</a>
+          </li>
+        {% endif %}
+      </ul>
+    </nav>
+  {% endif %}
+
   <a href="{% url 'task_create' %}" class="btn btn-primary">新規タスク作成</a>
 {% endblock %}
