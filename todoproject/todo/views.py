@@ -15,6 +15,18 @@ from .models import Task, Category
 from .forms import TaskForm
 
 def filter_tasks(tasks, category_id, priority, completed, search_query):
+    """タスクのクエリセットをフィルタリングする
+
+    Args:
+        tasks (QuerySet): フィルタリング前のタスククエリセット
+        category_id (str): フィルタリングするカテゴリID
+        priority (str): フィルタリングする優先度
+        completed (str): フィルタリングする完了状態
+        search_query (str): 検索クエリ
+
+    Returns:
+        QuerySet: フィルタリング後のタスククエリセット
+    """
     if category_id:
         tasks = tasks.filter(category_id=category_id)
     if priority:
@@ -26,6 +38,15 @@ def filter_tasks(tasks, category_id, priority, completed, search_query):
     return tasks
 
 def sort_tasks(tasks, sort_param):
+    """タスクのクエリセットをソートする
+
+    Args:
+        tasks (QuerySet): ソート前のタスククエリセット
+        sort_param (str): ソートのパラメータ
+
+    Returns:
+        QuerySet: ソート後のタスククエリセット
+    """
     sort_mapping = {
         'due_date': 'due_date',
         '-due_date': '-due_date',
@@ -38,6 +59,16 @@ def sort_tasks(tasks, sort_param):
 
 @login_required
 def task_list(request):
+    """ログインユーザーのタスク一覧を表示する
+
+    フィルタリング、ソート、検索、ページネーション機能を提供
+
+    Args:
+        request (HttpRequest): HTTPリクエストオブジェクト
+
+    Returns:
+        HttpResponse: レンダリングされたタスク一覧ページ
+    """
     tasks = Task.objects.filter(user=request.user)
     categories = Category.objects.all()
 
@@ -77,18 +108,39 @@ def task_list(request):
 
 @login_required
 def task_detail(request, pk):
+    """タスクの詳細を表示する
+
+    Args:
+        request (HttpRequest): HTTPリクエストオブジェクト
+        pk (int): タスクのプライマリーキー
+
+    Returns:
+        HttpResponse: レンダリングされたタスク詳細ページ
+
+    Raises:
+        Http404: 指定されたタスクが存在しない場合
+    """
     task = get_object_or_404(Task, pk=pk, user=request.user)
     return render(request, 'todo/task_detail.html', {'task': task})
 
 @login_required
 def task_create(request):
+    """新しいタスクを作成する
+
+    Args:
+        request (HttpRequest): HTTPリクエストオブジェクト
+
+    Returns:
+        HttpResponse: 成功時はタスク一覧ページへのリダイレクト
+                      失敗時は新規作成フォームを表示
+    """
     if request.method == 'POST':
         form = TaskForm(request.POST)
         if form.is_valid():
             task = form.save(commit=False)
             task.user = request.user
             task.save()
-            messages.success(request, 'タスクが正常に作成されました。')
+            messages.success(request, 'タスクが正常に作成されました')
             return redirect('task_list')
     else:
         form = TaskForm()
@@ -96,12 +148,25 @@ def task_create(request):
 
 @login_required
 def task_update(request, pk):
+    """既存のタスクを更新する
+
+    Args:
+        request (HttpRequest): HTTPリクエストオブジェクト
+        pk (int): 更新するタスクのプライマリーキー
+
+    Returns:
+        HttpResponse: 成功時はタスク一覧ページへのリダイレクト
+                      失敗時は編集フォームを再表示
+
+    Raises:
+        Http404: 指定されたタスクが存在しない場合
+    """
     task = get_object_or_404(Task, pk=pk, user=request.user)
     if request.method == 'POST':
         form = TaskForm(request.POST, instance=task)
         if form.is_valid():
             form.save()
-            messages.success(request, 'タスクが正常に更新されました。')
+            messages.success(request, 'タスクが正常に更新されました')
             return redirect('task_list')
     else:
         form = TaskForm(instance=task)
@@ -109,16 +174,41 @@ def task_update(request, pk):
 
 @login_required
 def task_delete(request, pk):
+    """タスクを削除する
+
+    Args:
+        request (HttpRequest): HTTPリクエストオブジェクト
+        pk (int): 削除するタスクのプライマリーキー
+
+    Returns:
+        HttpResponse: 成功時はタスク一覧ページへのリダイレクト
+                      確認時は削除確認ページを表示
+
+    Raises:
+        Http404: 指定されたタスクが存在しない場合
+    """
     task = get_object_or_404(Task, pk=pk, user=request.user)
     if request.method == 'POST':
         task.delete()
-        messages.success(request, 'タスクが正常に削除されました。')
+        messages.success(request, 'タスクが正常に削除されました')
         return redirect('task_list')
     return render(request, 'todo/task_confirm_delete.html', {'task': task})
 
 @require_POST
 @login_required
 def task_toggle_complete(request, pk):
+    """タスクの完了状態を切り替える
+
+    Args:
+        request (HttpRequest): HTTPリクエストオブジェクト
+        pk (int): 切り替えるタスクのプライマリーキー
+
+    Returns:
+        JsonResponse: タスクの新しい状態を含むJSON応答
+
+    Raises:
+        Http404: 指定されたタスクが存在しない場合
+    """
     task = get_object_or_404(Task, pk=pk, user=request.user)
     task.completed = not task.completed
     task.save()
@@ -128,12 +218,21 @@ def task_toggle_complete(request, pk):
     })
 
 def register(request):
+    """新規ユーザーを登録する
+
+    Args:
+        request (HttpRequest): HTTPリクエストオブジェクト
+
+    Returns:
+        HttpResponse: 成功時はタスク一覧ページへのリダイレクト
+                      失敗時は登録フォームを再表示
+    """
     if request.method == 'POST':
         form = UserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
             login(request, user)
-            messages.success(request, '正常に登録されました。')
+            messages.success(request, '正常に登録されました')
             return redirect('task_list')
     else:
         form = UserCreationForm()
