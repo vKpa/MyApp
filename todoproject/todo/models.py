@@ -8,14 +8,24 @@ class Category(models.Model):
     タスクを分類するためのカテゴリ
 
     Attributes:
-        name: カテゴリ名
+        name: カテゴリ名（システム用）
+        display_name: カテゴリ表示名
         color: カテゴリを表す色のHEXコード
     """
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, unique=True)
+    display_name = models.CharField(max_length=100, default='')
     color = models.CharField(max_length=7, default='#007bff')
 
     def __str__(self):
-        return self.name
+        return self.display_name or self.name
+
+    def save(self, *args, **kwargs):
+        if not self.display_name:
+            self.display_name = self.name
+        super().save(*args, **kwargs)
+
+    class Meta:
+        verbose_name_plural = "Categories"
 
 
 class Task(models.Model):
