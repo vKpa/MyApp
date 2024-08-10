@@ -17,9 +17,31 @@
 
 ## 最新の改善点
 
-- カテゴリモデルを改善し、システム名と表示名を分離
-  - `name`フィールド：システム内部で使用するカテゴリ名
-  - `display_name`フィールド：ユーザーに表示するカテゴリ名
+- ユニットテストを実装し、主要な機能のテストカバレッジを向上
+- テストカバレッジの測定を行い、全体で89%のカバレッジを達成
+
+## テスト実施について
+
+1. テストの実行方法：
+   ```
+   python manage.py test todo
+   ```
+
+2. テストカバレッジの測定：
+   ```
+   coverage run --source='.' manage.py test todo
+   coverage report
+   coverage html
+   ```
+
+3. テストカバレッジの結果：
+- 全体のカバレッジ: 89%
+- 主要なファイルのカバレッジ：
+  - todo/views.py: 83%
+  - todo/models.py: 92%
+  - todo/forms.py: 100%
+  - todo/urls.py: 100%
+
 
 ## 必要条件
 
