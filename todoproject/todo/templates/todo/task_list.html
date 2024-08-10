@@ -73,9 +73,9 @@
           <td>{{ task.category.name }}</td>
           <td>{% if task.completed %}完了{% else %}未完了{% endif %}</td>
           <td>
-            <a href="{% url 'task_detail' task.pk %}" class="btn btn-sm btn-info">詳細</a>
-            <a href="{% url 'task_update' task.pk %}" class="btn btn-sm btn-warning">編集</a>
-            <a href="#" class="btn btn-sm btn-success toggle-complete" data-task-id="{{ task.pk }}">
+            <a href="{% url 'task_detail' task.pk %}" class="btn btn-sm btn-outline-info">詳細</a>
+            <a href="{% url 'task_update' task.pk %}" class="btn btn-sm btn-outline-warning">編集</a>
+            <a href="#" class="btn btn-sm btn-outline-success toggle-complete" data-task-id="{{ task.pk }}">
               {% if task.completed %}未完了にする{% else %}完了にする{% endif %}
             </a>
           </td>

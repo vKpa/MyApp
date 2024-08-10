@@ -25,15 +25,19 @@
 }
 
 .priority-high {
-    background-color: #ffcccb !important;
+    background-color: #ffe3e3 !important;
 }
 
 .priority-medium {
-    background-color: #ffffcc !important;
+    background-color: #fcf4d7 !important;
 }
 
 .priority-low {
-    background-color: #e6f3ff !important;
+    background-color: #e6f9ff !important;
+}
+
+.priority-high:hover, .priority-medium:hover, .priority-low:hover {
+    opacity: 0.8;
 }
 
 .task-completed {
