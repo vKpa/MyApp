@@ -31,8 +31,12 @@ def filter_tasks(tasks, category_id, priority, completed, search_query):
         tasks = tasks.filter(category_id=category_id)
     if priority:
         tasks = tasks.filter(priority=priority)
-    if completed:
-        tasks = tasks.filter(completed=completed == 'True')
+    if completed is not None:
+        if completed.lower() in ['true', 'false']:
+            tasks = tasks.filter(completed=completed.lower() == 'true')
+        else:
+            # 無効なcompleted値の場合、空のクエリセットを返す
+            return tasks.none()
     if search_query:
         tasks = tasks.filter(Q(title__icontains=search_query) | Q(description__icontains=search_query))
     return tasks
