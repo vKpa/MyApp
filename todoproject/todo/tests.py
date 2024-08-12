@@ -3,55 +3,38 @@ from django.urls import reverse
 from django.utils import timezone
 from django.contrib.auth.models import User
 from .models import Task, Category
-from datetime import datetime, timedelta
-
+from datetime import timedelta
+from .views import filter_tasks, sort_tasks
 
 class TodoTestCase(TestCase):
     def setUp(self):
-        # テスト用のユーザーを作成
+        self.client = Client()
         self.user = User.objects.create_user(username='testuser', password='12345')
-
-        # テスト用のカテゴリを作成
-        self.category = Category.objects.create(name='Test Category', display_name='Test Category')
-
-        # テスト用のタスクを作成
+        self.category = Category.objects.create(name='TestCategory', display_name='Test Category')
         self.task = Task.objects.create(
             title='Test Task',
             description='This is a test task',
             due_date=timezone.now() + timedelta(days=1),
             user=self.user,
             category=self.category,
-            priority='medium'
+            priority='medium',
+            completed=False
         )
 
-        # クライアントを設定
-        self.client = Client()
-
     def test_task_list_view(self):
-        # ログインする
         self.client.login(username='testuser', password='12345')
-
-        # タスク一覧ページにアクセス
         response = self.client.get(reverse('task_list'))
-
-        # レスポンスのステータスコードを確認
         self.assertEqual(response.status_code, 200)
-
-        # テンプレートが正しいか確認
         self.assertTemplateUsed(response, 'todo/task_list.html')
-
-        # コンテキストにタスクが含まれているか確認
+        # タスクが実際にデータベースに存在するか確認
+        self.assertTrue(Task.objects.filter(title='Test Task').exists())
         self.assertContains(response, 'Test Task')
 
     def test_task_create_view(self):
-        # ログインする
         self.client.login(username='testuser', password='12345')
-
-        # タスク作成ページにアクセス
         response = self.client.get(reverse('task_create'))
         self.assertEqual(response.status_code, 200)
 
-        # 新しいタスクを作成
         new_task_data = {
             'title': 'New Test Task',
             'description': 'This is a new test task',
@@ -60,62 +43,110 @@ class TodoTestCase(TestCase):
             'priority': 'high'
         }
         response = self.client.post(reverse('task_create'), new_task_data)
-
-        # リダイレクトされたか確認
         self.assertEqual(response.status_code, 302)
-
-        # 新しいタスクがデータベースに追加されたか確認
         self.assertTrue(Task.objects.filter(title='New Test Task').exists())
 
     def test_task_update_view(self):
-        # ログインする
         self.client.login(username='testuser', password='12345')
-
-        # タスク更新ページにアクセス
         response = self.client.get(reverse('task_update', args=[self.task.id]))
         self.assertEqual(response.status_code, 200)
 
-        # タスクを更新
         updated_task_data = {
             'title': 'Updated Test Task',
             'description': 'This is an updated test task',
-            'due_date': (datetime.now() + timedelta(days=3)).strftime('%Y-%m-%d %H:%M:%S'),
+            'due_date': (timezone.now() + timedelta(days=3)).strftime('%Y-%m-%d %H:%M:%S'),
             'category': self.category.id,
             'priority': 'low'
         }
         response = self.client.post(reverse('task_update', args=[self.task.id]), updated_task_data)
-
-        # リダイレクトされたか確認
         self.assertEqual(response.status_code, 302)
-
-        # タスクが更新されたか確認
         updated_task = Task.objects.get(id=self.task.id)
         self.assertEqual(updated_task.title, 'Updated Test Task')
 
     def test_task_delete_view(self):
-        # ログインする
         self.client.login(username='testuser', password='12345')
-
-        # タスク削除を実行
         response = self.client.post(reverse('task_delete', args=[self.task.id]))
-
-        # リダイレクトされたか確認
         self.assertEqual(response.status_code, 302)
-
-        # タスクが削除されたか確認
         self.assertFalse(Task.objects.filter(id=self.task.id).exists())
 
     def test_task_toggle_complete(self):
-        # ログインする
         self.client.login(username='testuser', password='12345')
-
-        # タスクの完了状態を切り替え
         response = self.client.post(reverse('task_toggle_complete', args=[self.task.id]))
-
-        # JSONレスポンスを確認
         self.assertEqual(response.status_code, 200)
         self.assertJSONEqual(str(response.content, encoding='utf8'), {'status': 'success', 'completed': True})
+        self.task.refresh_from_db()
+        self.assertTrue(self.task.completed)
 
-        # データベース上でタスクの状態が更新されたか確認
-        updated_task = Task.objects.get(id=self.task.id)
-        self.assertTrue(updated_task.completed)
+    def test_filter_tasks(self):
+        tasks = Task.objects.all()
+
+        # 各フィルター条件でのテスト
+        test_cases = [
+            (str(self.category.id), self.task.priority, str(self.task.completed), 'Test', 1),
+            (str(self.category.id), 'medium', 'False', 'Test', 1),
+            (str(self.category.id), None, None, None, 1),
+            (None, 'medium', None, None, 1),
+            (None, None, 'False', None, 1),
+            (None, None, None, 'Test', 1),
+            (None, None, None, 'NonExistent', 0),
+        ]
+
+        for category_id, priority, completed, search_query, expected_count in test_cases:
+            filtered_tasks = filter_tasks(tasks, category_id, priority, completed, search_query)
+            self.assertEqual(filtered_tasks.count(), expected_count)
+
+        # エッジケースのテスト
+        edge_cases = [
+            ('999', 'high', 'True', 'Nonexistent', 0),  # 存在しないカテゴリ
+            (str(self.category.id), 'invalid', 'False', 'Test', 0),  # 無効な優先度
+            (str(self.category.id), 'medium', 'invalid', 'Test', 0),  # 無効な完了状態
+        ]
+
+        for category_id, priority, completed, search_query, expected_count in edge_cases:
+            filtered_tasks = filter_tasks(tasks, category_id, priority, completed, search_query)
+            self.assertEqual(filtered_tasks.count(), expected_count,
+                                f"Failed for: category_id={category_id}, priority={priority}, "
+                                f"completed={completed}, search_query={search_query}")
+
+    def test_sort_tasks(self):
+        Task.objects.create(
+            title='Another Task',
+            description='Another Description',
+            due_date=timezone.now() + timedelta(days=2),
+            user=self.user,
+            category=self.category
+        )
+        tasks = Task.objects.all()
+        sorted_tasks = sort_tasks(tasks, 'due_date')
+        self.assertEqual(sorted_tasks.first(), self.task)
+
+    def test_register_success(self):
+        response = self.client.post(reverse('register'), {
+            'username': 'newuser',
+            'password1': 'testpassword123',
+            'password2': 'testpassword123',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(User.objects.filter(username='newuser').exists())
+
+    def test_register_failure(self):
+        response = self.client.post(reverse('register'), {
+            'username': 'newuser',
+            'password1': 'testpassword123',
+            'password2': 'differentpassword',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username='newuser').exists())
+
+    def test_task_create_view_invalid_data(self):
+        self.client.login(username='testuser', password='12345')
+        invalid_task_data = {
+            'title': '',  # タイトルを空にして無効なデータをテスト
+            'description': 'This is an invalid task',
+            'due_date': (timezone.now() + timedelta(days=2)).strftime('%Y-%m-%d %H:%M:%S'),
+            'category': self.category.id,
+            'priority': 'high'
+        }
+        response = self.client.post(reverse('task_create'), invalid_task_data)
+        self.assertEqual(response.status_code, 200)  # フォームが再表示されることを確認
+        self.assertFalse(Task.objects.filter(description='This is an invalid task').exists())
